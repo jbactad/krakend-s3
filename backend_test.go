@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	awsS3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/golang/mock/gomock"
 	s3 "github.com/jbactad/krakend-s3"
 	"github.com/jbactad/krakend-s3/mocks"
@@ -14,6 +15,79 @@ import (
 )
 
 //go:generate mockgen -destination mocks/lura_logger.go -package mocks github.com/luraproject/lura/v2/logging Logger
+//go:generate mockgen -destination mocks/object_getter.go -package mocks -source backend.go
+
+func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	l := mocks.NewMockLogger(ctrl)
+	cl := mocks.NewMockObjectGetter(ctrl)
+	ctx := context.Background()
+
+	type args struct {
+		config *config.Backend
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr assert.ErrorAssertionFunc
+		want    *proxy.Response
+		setup   func(logger *mocks.MockLogger, client *mocks.MockObjectGetter)
+	}{
+		{
+			name: "valid config, should call s3 client to fetch file",
+			args: args{
+				config: &config.Backend{
+					URLPattern: "/sample.json",
+					ExtraConfig: map[string]interface{}{
+						s3.Namespace: map[string]interface{}{
+							"bucket": "bucket1",
+						},
+					},
+				},
+			},
+			wantErr: assert.NoError,
+			want:    nil,
+			setup: func(logger *mocks.MockLogger, client *mocks.MockObjectGetter) {
+				b := "bucket1"
+				k := "sample.json"
+				client.EXPECT().GetObject(
+					ctx,
+					gomock.Eq(
+						&awsS3.GetObjectInput{
+							Bucket: &b,
+							Key:    &k,
+						},
+					),
+				).Times(1)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(
+			tt.name, func(t *testing.T) {
+				if tt.setup != nil {
+					tt.setup(l, cl)
+				}
+
+				b := s3.BackendFactoryWithClient(
+					l, func(remote *config.Backend) proxy.Proxy {
+						return proxy.NoopProxy
+					},
+					func(opts *s3.Options) s3.ObjectGetter {
+						return cl
+					},
+				)
+				p := b(tt.args.config)
+				got, err := p(ctx, nil)
+				if !tt.wantErr(t, err) {
+					return
+				}
+
+				assert.Equal(t, tt.want, got)
+			},
+		)
+	}
+}
 
 func TestBackendFactory_invalidConfig(t *testing.T) {
 	ctrl := gomock.NewController(t)

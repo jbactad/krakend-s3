@@ -3,12 +3,16 @@ package s3
 import (
 	"context"
 	"errors"
+	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/luraproject/lura/v2/config"
 	"github.com/luraproject/lura/v2/logging"
 	"github.com/luraproject/lura/v2/proxy"
 )
+
+const Namespace = "github.com/jbactad/krakend-s3"
 
 var (
 	errNoConfig      = errors.New("aws s3: no extra config defined")
@@ -16,16 +20,31 @@ var (
 	errInvalidConfig = errors.New("aws s3: invalid config")
 )
 
-const Namespace = "github.com/jbactad/krakend-s3"
+type ObjectGetter interface {
+	GetObject(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error)
+}
 
 type Options struct {
-	AWS *aws.Config
+	AWSConfig aws.Config
+	Bucket    string
 }
 
 func BackendFactory(logger logging.Logger, bf proxy.BackendFactory) proxy.BackendFactory {
+	return BackendFactoryWithClient(
+		logger, bf, func(opts *Options) ObjectGetter {
+			return s3.NewFromConfig(opts.AWSConfig)
+		},
+	)
+}
+
+func BackendFactoryWithClient(
+	logger logging.Logger,
+	bf proxy.BackendFactory,
+	clientFactory func(opts *Options) ObjectGetter,
+) proxy.BackendFactory {
 	return func(remote *config.Backend) proxy.Proxy {
 		logPrefix := "[BACKEND: " + remote.URLPattern + "][S3]"
-		_, err := getOptions(remote)
+		opts, err := getOptions(remote)
 		if err != nil {
 			if err != errNoConfig {
 				logger.Error(logPrefix, err)
@@ -34,12 +53,17 @@ func BackendFactory(logger logging.Logger, bf proxy.BackendFactory) proxy.Backen
 			return bf(remote)
 		}
 
-		if _, ok := remote.ExtraConfig[Namespace]; !ok {
-			logger.Error(logPrefix, errNoConfig)
-			return bf(remote)
-		}
+		cl := clientFactory(opts)
+
+		k := strings.TrimPrefix(remote.URLPattern, "/")
 
 		return func(ctx context.Context, request *proxy.Request) (*proxy.Response, error) {
+			cl.GetObject(
+				ctx, &s3.GetObjectInput{
+					Bucket: &opts.Bucket,
+					Key:    &k,
+				},
+			)
 			return nil, nil
 		}
 	}
@@ -61,17 +85,17 @@ func getOptions(remote *config.Backend) (*Options, error) {
 		return nil, errInvalidBucket
 	}
 
-	key, ok := v.(string)
+	bucket, ok := v.(string)
 	if !ok {
 		return nil, errInvalidBucket
 	}
 
-	if key == "" {
+	if bucket == "" {
 		return nil, errInvalidBucket
 	}
 
 	opts := &Options{
-
+		Bucket: bucket,
 	}
 
 	return opts, nil
