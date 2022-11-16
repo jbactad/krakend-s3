@@ -209,7 +209,7 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want *s3.Options
+		want assert.ValueAssertionFunc
 	}{
 		{
 			name: "with bucket",
@@ -223,9 +223,13 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 					},
 				},
 			},
-			want: &s3.Options{
-				AWSConfig: aws.Config{},
-				Bucket:    "bucket1",
+			want: func(t assert.TestingT, i interface{}, i2 ...interface{}) bool {
+				return assert.EqualValues(
+					t, &s3.Options{
+						AWSConfig: aws.Config{},
+						Bucket:    "bucket1",
+					}, i, i2...,
+				)
 			},
 		},
 		{
@@ -241,29 +245,15 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 					},
 				},
 			},
-			want: &s3.Options{
-				AWSConfig: aws.Config{
-					Region: "eu-west-1",
-				},
-				Bucket: "bucket1",
-			},
-		},
-		{
-			name: "with empty region",
-			args: args{
-				config: &config.Backend{
-					URLPattern: "/sample.json",
-					ExtraConfig: map[string]interface{}{
-						s3.Namespace: map[string]interface{}{
-							"bucket": "bucket1",
-							"region": "",
+			want: func(t assert.TestingT, i interface{}, i2 ...interface{}) bool {
+				return assert.EqualValues(
+					t, &s3.Options{
+						AWSConfig: aws.Config{
+							Region: "eu-west-1",
 						},
-					},
-				},
-			},
-			want: &s3.Options{
-				AWSConfig: aws.Config{},
-				Bucket:    "bucket1",
+						Bucket: "bucket1",
+					}, i, i2...,
+				)
 			},
 		},
 		{
@@ -279,13 +269,17 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 					},
 				},
 			},
-			want: &s3.Options{
-				AWSConfig: aws.Config{},
-				Bucket:    "bucket1",
+			want: func(t assert.TestingT, i interface{}, i2 ...interface{}) bool {
+				return assert.EqualValues(
+					t, &s3.Options{
+						AWSConfig: aws.Config{},
+						Bucket:    "bucket1",
+					}, i, i2...,
+				)
 			},
 		},
 		{
-			name: "with null region",
+			name: "with nil region",
 			args: args{
 				config: &config.Backend{
 					URLPattern: "/sample.json",
@@ -297,9 +291,112 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 					},
 				},
 			},
-			want: &s3.Options{
-				AWSConfig: aws.Config{},
-				Bucket:    "bucket1",
+			want: func(t assert.TestingT, i interface{}, i2 ...interface{}) bool {
+				return assert.EqualValues(
+					t, &s3.Options{
+						AWSConfig: aws.Config{},
+						Bucket:    "bucket1",
+					}, i, i2...,
+				)
+			},
+		},
+		{
+			name: "with endpoint",
+			args: args{
+				config: &config.Backend{
+					URLPattern: "/sample.json",
+					ExtraConfig: map[string]interface{}{
+						s3.Namespace: map[string]interface{}{
+							"bucket":   "bucket1",
+							"endpoint": "localhost",
+						},
+					},
+				},
+			},
+			want: func(t assert.TestingT, i interface{}, i2 ...interface{}) bool {
+				o, ok := i.(*s3.Options)
+				if !ok {
+					return false
+				}
+				got, err := o.AWSConfig.EndpointResolverWithOptions.ResolveEndpoint("s3", "eu-west-1")
+				if err != nil {
+					t.Errorf("error resolving endpoint: %s", err)
+					return false
+				}
+
+				return assert.EqualValues(
+					t, aws.Endpoint{
+						URL:               "localhost",
+						HostnameImmutable: true,
+						SigningRegion:     "eu-west-1",
+					}, got,
+				)
+			},
+		},
+		{
+			name: "with empty endpoint",
+			args: args{
+				config: &config.Backend{
+					URLPattern: "/sample.json",
+					ExtraConfig: map[string]interface{}{
+						s3.Namespace: map[string]interface{}{
+							"bucket":   "bucket1",
+							"endpoint": "",
+						},
+					},
+				},
+			},
+			want: func(t assert.TestingT, i interface{}, i2 ...interface{}) bool {
+				return assert.EqualValues(
+					t, &s3.Options{
+						AWSConfig: aws.Config{},
+						Bucket:    "bucket1",
+					}, i, i2...,
+				)
+			},
+		},
+		{
+			name: "with invalid endpoint type",
+			args: args{
+				config: &config.Backend{
+					URLPattern: "/sample.json",
+					ExtraConfig: map[string]interface{}{
+						s3.Namespace: map[string]interface{}{
+							"bucket":   "bucket1",
+							"endpoint": 1,
+						},
+					},
+				},
+			},
+			want: func(t assert.TestingT, i interface{}, i2 ...interface{}) bool {
+				return assert.EqualValues(
+					t, &s3.Options{
+						AWSConfig: aws.Config{},
+						Bucket:    "bucket1",
+					}, i, i2...,
+				)
+			},
+		},
+		{
+			name: "with nil endpoint",
+			args: args{
+				config: &config.Backend{
+					URLPattern: "/sample.json",
+					ExtraConfig: map[string]interface{}{
+						s3.Namespace: map[string]interface{}{
+							"bucket":   "bucket1",
+							"endpoint": nil,
+						},
+					},
+				},
+			},
+			want: func(t assert.TestingT, i interface{}, i2 ...interface{}) bool {
+				return assert.EqualValues(
+					t, &s3.Options{
+						AWSConfig: aws.Config{},
+						Bucket:    "bucket1",
+					}, i, i2...,
+				)
 			},
 		},
 	}
@@ -311,7 +408,7 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 						return proxy.NoopProxy
 					},
 					func(got *s3.Options) s3.ObjectGetter {
-						assert.EqualValues(t, got, tt.want)
+						tt.want(t, got)
 						return nil
 					},
 				)

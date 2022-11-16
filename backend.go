@@ -122,21 +122,21 @@ func getOptions(remote *config.Backend) (*Options, error) {
 		AWSConfig: aws.Config{},
 	}
 
-	v, ok = cfg["region"]
-	if !ok {
-		return opts, nil
+	if region, ok := cfg["region"].(string); ok {
+		opts.AWSConfig.Region = region
 	}
 
-	region, ok := v.(string)
-	if !ok {
-		return opts, nil
+	if endpoint, ok := cfg["endpoint"].(string); ok && endpoint != "" {
+		opts.AWSConfig.EndpointResolverWithOptions = aws.EndpointResolverWithOptionsFunc(
+			func(service, r string, options ...interface{}) (aws.Endpoint, error) {
+				return aws.Endpoint{
+					URL:               endpoint,
+					SigningRegion:     r,
+					HostnameImmutable: true,
+				}, nil
+			},
+		)
 	}
-
-	if region == "" {
-		return opts, nil
-	}
-
-	opts.AWSConfig.Region = region
 
 	return opts, nil
 }
