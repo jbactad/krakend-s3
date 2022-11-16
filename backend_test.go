@@ -2,6 +2,7 @@ package s3_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"strings"
@@ -136,6 +137,33 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 					)
 			},
 		},
+		{
+			name: "s3 returned invalid json, should return error",
+			args: args{
+				config: &config.Backend{
+					URLPattern: "/sample.json",
+					ExtraConfig: map[string]interface{}{
+						s3.Namespace: map[string]interface{}{
+							"bucket": "bucket1",
+						},
+					},
+				},
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.IsType(t, &json.SyntaxError{}, err)
+			},
+			want: nil,
+			setup: func(logger *mocks.MockLogger, client *mocks.MockObjectGetter) {
+				client.EXPECT().
+					GetObject(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return(
+						&awsS3.GetObjectOutput{
+							Body: io.NopCloser(strings.NewReader("")),
+						}, nil,
+					)
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(
@@ -144,10 +172,17 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 					tt.setup(l, cl)
 				}
 
-				b := s3.BackendFactoryWithClient(
-					l, func(remote *config.Backend) proxy.Proxy {
-						return proxy.NoopProxy
+				bf := proxy.BackendFactory(
+					func(remote *config.Backend) proxy.Proxy {
+						return func(ctx context.Context, request *proxy.Request) (*proxy.Response, error) {
+							t.Error("this backend factory should not been called")
+							return nil, nil
+						}
 					},
+				)
+
+				b := s3.BackendFactoryWithClient(
+					l, bf,
 					func(opts *s3.Options) s3.ObjectGetter {
 						return cl
 					},
