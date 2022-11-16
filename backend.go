@@ -71,7 +71,10 @@ func BackendFactoryWithClient(
 			}
 
 			data := map[string]interface{}{}
-			cont, _ := io.ReadAll(obj.Body)
+			cont, err := io.ReadAll(obj.Body)
+			if err != nil {
+				return nil, err
+			}
 
 			if err := json.Unmarshal(cont, &data); err != nil {
 				return nil, err

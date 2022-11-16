@@ -109,6 +109,33 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 					)
 			},
 		},
+		{
+			name: "error encountered while reading s3 response, should return error",
+			args: args{
+				config: &config.Backend{
+					URLPattern: "/sample.json",
+					ExtraConfig: map[string]interface{}{
+						s3.Namespace: map[string]interface{}{
+							"bucket": "bucket1",
+						},
+					},
+				},
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.EqualValues(t, errors.New("something went wrong"), err)
+			},
+			want: nil,
+			setup: func(logger *mocks.MockLogger, client *mocks.MockObjectGetter) {
+				client.EXPECT().
+					GetObject(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return(
+						&awsS3.GetObjectOutput{
+							Body: io.NopCloser(&faultyReader{error: errors.New("something went wrong")}),
+						}, nil,
+					)
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(
@@ -279,4 +306,12 @@ func TestBackendFactory_invalidConfig(t *testing.T) {
 			},
 		)
 	}
+}
+
+type faultyReader struct {
+	error error
+}
+
+func (f faultyReader) Read(_ []byte) (n int, err error) {
+	return 0, f.error
 }
