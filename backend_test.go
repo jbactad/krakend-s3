@@ -84,6 +84,31 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 					)
 			},
 		},
+		{
+			name: "s3 client returned an error, should return error",
+			args: args{
+				config: &config.Backend{
+					URLPattern: "/sample.json",
+					ExtraConfig: map[string]interface{}{
+						s3.Namespace: map[string]interface{}{
+							"bucket": "bucket1",
+						},
+					},
+				},
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.EqualValues(t, errors.New("something went wrong"), err)
+			},
+			want: nil,
+			setup: func(logger *mocks.MockLogger, client *mocks.MockObjectGetter) {
+				client.EXPECT().
+					GetObject(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return(
+						nil, errors.New("something went wrong"),
+					)
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(

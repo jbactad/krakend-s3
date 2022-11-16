@@ -60,12 +60,15 @@ func BackendFactoryWithClient(
 		k := strings.TrimPrefix(remote.URLPattern, "/")
 
 		return func(ctx context.Context, request *proxy.Request) (*proxy.Response, error) {
-			obj, _ := cl.GetObject(
+			obj, err := cl.GetObject(
 				ctx, &s3.GetObjectInput{
 					Bucket: &opts.Bucket,
 					Key:    &k,
 				},
 			)
+			if err != nil {
+				return nil, err
+			}
 
 			data := map[string]interface{}{}
 			cont, _ := io.ReadAll(obj.Body)
@@ -112,7 +115,8 @@ func getOptions(remote *config.Backend) (*Options, error) {
 	}
 
 	opts := &Options{
-		Bucket: bucket,
+		Bucket:    bucket,
+		AWSConfig: aws.Config{},
 	}
 
 	return opts, nil
