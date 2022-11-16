@@ -8,11 +8,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awsS3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/golang/mock/gomock"
 	s3 "github.com/jbactad/krakend-s3"
 	"github.com/jbactad/krakend-s3/mocks"
 	"github.com/luraproject/lura/v2/config"
+	"github.com/luraproject/lura/v2/logging"
 	"github.com/luraproject/lura/v2/proxy"
 	"github.com/stretchr/testify/assert"
 )
@@ -194,6 +196,126 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 				}
 
 				assert.EqualValues(t, tt.want, got)
+			},
+		)
+	}
+}
+
+func TestBackendFactoryWithClient_validConfig(t *testing.T) {
+	l := logging.NoOp
+	type args struct {
+		config *config.Backend
+	}
+	tests := []struct {
+		name string
+		args args
+		want *s3.Options
+	}{
+		{
+			name: "with bucket",
+			args: args{
+				config: &config.Backend{
+					URLPattern: "/sample.json",
+					ExtraConfig: map[string]interface{}{
+						s3.Namespace: map[string]interface{}{
+							"bucket": "bucket1",
+						},
+					},
+				},
+			},
+			want: &s3.Options{
+				AWSConfig: aws.Config{},
+				Bucket:    "bucket1",
+			},
+		},
+		{
+			name: "with region",
+			args: args{
+				config: &config.Backend{
+					URLPattern: "/sample.json",
+					ExtraConfig: map[string]interface{}{
+						s3.Namespace: map[string]interface{}{
+							"bucket": "bucket1",
+							"region": "eu-west-1",
+						},
+					},
+				},
+			},
+			want: &s3.Options{
+				AWSConfig: aws.Config{
+					Region: "eu-west-1",
+				},
+				Bucket: "bucket1",
+			},
+		},
+		{
+			name: "with empty region",
+			args: args{
+				config: &config.Backend{
+					URLPattern: "/sample.json",
+					ExtraConfig: map[string]interface{}{
+						s3.Namespace: map[string]interface{}{
+							"bucket": "bucket1",
+							"region": "",
+						},
+					},
+				},
+			},
+			want: &s3.Options{
+				AWSConfig: aws.Config{},
+				Bucket:    "bucket1",
+			},
+		},
+		{
+			name: "with invalid region type",
+			args: args{
+				config: &config.Backend{
+					URLPattern: "/sample.json",
+					ExtraConfig: map[string]interface{}{
+						s3.Namespace: map[string]interface{}{
+							"bucket": "bucket1",
+							"region": 1,
+						},
+					},
+				},
+			},
+			want: &s3.Options{
+				AWSConfig: aws.Config{},
+				Bucket:    "bucket1",
+			},
+		},
+		{
+			name: "with null region",
+			args: args{
+				config: &config.Backend{
+					URLPattern: "/sample.json",
+					ExtraConfig: map[string]interface{}{
+						s3.Namespace: map[string]interface{}{
+							"bucket": "bucket1",
+							"region": nil,
+						},
+					},
+				},
+			},
+			want: &s3.Options{
+				AWSConfig: aws.Config{},
+				Bucket:    "bucket1",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(
+			tt.name, func(t *testing.T) {
+				b := s3.BackendFactoryWithClient(
+					l, func(remote *config.Backend) proxy.Proxy {
+						return proxy.NoopProxy
+					},
+					func(got *s3.Options) s3.ObjectGetter {
+						assert.EqualValues(t, got, tt.want)
+						return nil
+					},
+				)
+				b(tt.args.config)
 			},
 		)
 	}

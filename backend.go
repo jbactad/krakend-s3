@@ -122,5 +122,21 @@ func getOptions(remote *config.Backend) (*Options, error) {
 		AWSConfig: aws.Config{},
 	}
 
+	v, ok = cfg["region"]
+	if !ok {
+		return opts, nil
+	}
+
+	region, ok := v.(string)
+	if !ok {
+		return opts, nil
+	}
+
+	if region == "" {
+		return opts, nil
+	}
+
+	opts.AWSConfig.Region = region
+
 	return opts, nil
 }
