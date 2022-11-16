@@ -100,7 +100,7 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 				},
 			},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
-				return assert.EqualValues(t, errors.New("something went wrong"), err)
+				return assert.EqualValues(t, errors.New("something went wrong"), err, i...)
 			},
 			want: nil,
 			setup: func(logger *mocks.MockLogger, client *mocks.MockObjectGetter) {
@@ -125,7 +125,7 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 				},
 			},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
-				return assert.EqualValues(t, errors.New("something went wrong"), err)
+				return assert.EqualValues(t, errors.New("something went wrong"), err, i...)
 			},
 			want: nil,
 			setup: func(logger *mocks.MockLogger, client *mocks.MockObjectGetter) {
@@ -152,7 +152,7 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 				},
 			},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
-				return assert.IsType(t, &json.SyntaxError{}, err)
+				return assert.IsType(t, &json.SyntaxError{}, err, i...)
 			},
 			want: nil,
 			setup: func(logger *mocks.MockLogger, client *mocks.MockObjectGetter) {
@@ -386,6 +386,74 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 						s3.Namespace: map[string]interface{}{
 							"bucket":   "bucket1",
 							"endpoint": nil,
+						},
+					},
+				},
+			},
+			want: func(t assert.TestingT, i interface{}, i2 ...interface{}) bool {
+				return assert.EqualValues(
+					t, &s3.Options{
+						AWSConfig: aws.Config{},
+						Bucket:    "bucket1",
+					}, i, i2...,
+				)
+			},
+		},
+		{
+			name: "with max_retries",
+			args: args{
+				config: &config.Backend{
+					URLPattern: "/sample.json",
+					ExtraConfig: map[string]interface{}{
+						s3.Namespace: map[string]interface{}{
+							"bucket":      "bucket1",
+							"max_retries": 5,
+						},
+					},
+				},
+			},
+			want: func(t assert.TestingT, i interface{}, i2 ...interface{}) bool {
+				return assert.EqualValues(
+					t, &s3.Options{
+						AWSConfig: aws.Config{
+							RetryMaxAttempts: 5,
+						},
+						Bucket: "bucket1",
+					}, i, i2...,
+				)
+			},
+		},
+		{
+			name: "with invalid max_retries",
+			args: args{
+				config: &config.Backend{
+					URLPattern: "/sample.json",
+					ExtraConfig: map[string]interface{}{
+						s3.Namespace: map[string]interface{}{
+							"bucket":      "bucket1",
+							"max_retries": "5",
+						},
+					},
+				},
+			},
+			want: func(t assert.TestingT, i interface{}, i2 ...interface{}) bool {
+				return assert.EqualValues(
+					t, &s3.Options{
+						AWSConfig: aws.Config{},
+						Bucket:    "bucket1",
+					}, i, i2...,
+				)
+			},
+		},
+		{
+			name: "with nil max_retries",
+			args: args{
+				config: &config.Backend{
+					URLPattern: "/sample.json",
+					ExtraConfig: map[string]interface{}{
+						s3.Namespace: map[string]interface{}{
+							"bucket":      "bucket1",
+							"max_retries": nil,
 						},
 					},
 				},

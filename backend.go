@@ -138,5 +138,9 @@ func getOptions(remote *config.Backend) (*Options, error) {
 		)
 	}
 
+	if maxRetries, ok := cfg["max_retries"].(int); ok {
+		opts.AWSConfig.RetryMaxAttempts = maxRetries
+	}
+
 	return opts, nil
 }
