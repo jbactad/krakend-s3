@@ -3,6 +3,8 @@ package s3_test
 import (
 	"context"
 	"errors"
+	"io"
+	"strings"
 	"testing"
 
 	awsS3 "github.com/aws/aws-sdk-go-v2/service/s3"
@@ -34,7 +36,7 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 		setup   func(logger *mocks.MockLogger, client *mocks.MockObjectGetter)
 	}{
 		{
-			name: "valid config, should call s3 client to fetch file",
+			name: "s3 client returned a valid object, should parse and return content",
 			args: args{
 				config: &config.Backend{
 					URLPattern: "/sample.json",
@@ -46,19 +48,40 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 				},
 			},
 			wantErr: assert.NoError,
-			want:    nil,
+			want: &proxy.Response{
+				Data: map[string]interface{}{
+					"property1": "value1",
+				},
+				IsComplete: true,
+				Metadata: proxy.Metadata{
+					Headers:    map[string][]string{},
+					StatusCode: 200,
+				},
+			},
 			setup: func(logger *mocks.MockLogger, client *mocks.MockObjectGetter) {
 				b := "bucket1"
 				k := "sample.json"
-				client.EXPECT().GetObject(
-					ctx,
-					gomock.Eq(
-						&awsS3.GetObjectInput{
-							Bucket: &b,
-							Key:    &k,
-						},
-					),
-				).Times(1)
+				client.EXPECT().
+					GetObject(
+						ctx, gomock.Eq(
+							&awsS3.GetObjectInput{
+								Bucket: &b,
+								Key:    &k,
+							},
+						),
+					).
+					Times(1).
+					Return(
+						&awsS3.GetObjectOutput{
+							Body: io.NopCloser(
+								strings.NewReader(
+									`{
+	"property1": "value1"
+}`,
+								),
+							),
+						}, nil,
+					)
 			},
 		},
 	}
@@ -83,7 +106,7 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 					return
 				}
 
-				assert.Equal(t, tt.want, got)
+				assert.EqualValues(t, tt.want, got)
 			},
 		)
 	}
@@ -93,7 +116,7 @@ func TestBackendFactory_invalidConfig(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	l := mocks.NewMockLogger(ctrl)
 
-	oResp := &proxy.Response{
+	expectedResp := &proxy.Response{
 		Data:       map[string]interface{}{},
 		IsComplete: true,
 		Metadata:   proxy.Metadata{},
@@ -104,11 +127,9 @@ func TestBackendFactory_invalidConfig(t *testing.T) {
 		config *config.Backend
 	}
 	tests := []struct {
-		name    string
-		args    args
-		wantErr assert.ErrorAssertionFunc
-		want    *proxy.Response
-		setup   func(logger *mocks.MockLogger)
+		name  string
+		args  args
+		setup func(logger *mocks.MockLogger)
 	}{
 		{
 			name: "namespace not found in config, should return original proxy",
@@ -118,8 +139,6 @@ func TestBackendFactory_invalidConfig(t *testing.T) {
 					ExtraConfig: map[string]interface{}{},
 				},
 			},
-			wantErr: assert.NoError,
-			want:    oResp,
 		},
 		{
 			name: "invalid config for namespace, should log error and return original proxy",
@@ -131,8 +150,6 @@ func TestBackendFactory_invalidConfig(t *testing.T) {
 					},
 				},
 			},
-			wantErr: assert.NoError,
-			want:    oResp,
 			setup: func(logger *mocks.MockLogger) {
 				logger.EXPECT().Error(
 					"[BACKEND: /some-endpoint][S3]",
@@ -150,8 +167,6 @@ func TestBackendFactory_invalidConfig(t *testing.T) {
 					},
 				},
 			},
-			wantErr: assert.NoError,
-			want:    oResp,
 			setup: func(logger *mocks.MockLogger) {
 				logger.EXPECT().Error(
 					"[BACKEND: /some-endpoint][S3]",
@@ -171,8 +186,6 @@ func TestBackendFactory_invalidConfig(t *testing.T) {
 					},
 				},
 			},
-			wantErr: assert.NoError,
-			want:    oResp,
 			setup: func(logger *mocks.MockLogger) {
 				logger.EXPECT().Error(
 					"[BACKEND: /some-endpoint][S3]",
@@ -192,8 +205,6 @@ func TestBackendFactory_invalidConfig(t *testing.T) {
 					},
 				},
 			},
-			wantErr: assert.NoError,
-			want:    oResp,
 			setup: func(logger *mocks.MockLogger) {
 				logger.EXPECT().Error(
 					"[BACKEND: /some-endpoint][S3]",
@@ -214,8 +225,6 @@ func TestBackendFactory_invalidConfig(t *testing.T) {
 					},
 				},
 			},
-			wantErr: assert.NoError,
-			want:    oResp,
 			setup: func(logger *mocks.MockLogger) {
 				logger.EXPECT().Error(
 					"[BACKEND: /some-endpoint][S3]",
@@ -234,17 +243,14 @@ func TestBackendFactory_invalidConfig(t *testing.T) {
 				b := s3.BackendFactory(
 					l, func(remote *config.Backend) proxy.Proxy {
 						return func(ctx context.Context, request *proxy.Request) (*proxy.Response, error) {
-							return oResp, nil
+							return expectedResp, nil
 						}
 					},
 				)
 				p := b(tt.args.config)
-				got, err := p(nil, nil)
-				if !tt.wantErr(t, err) {
-					return
-				}
+				got, _ := p(nil, nil)
 
-				assert.Equal(t, tt.want, got)
+				assert.Equal(t, expectedResp, got)
 			},
 		)
 	}

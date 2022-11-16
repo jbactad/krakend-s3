@@ -2,7 +2,9 @@ package s3
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -58,13 +60,28 @@ func BackendFactoryWithClient(
 		k := strings.TrimPrefix(remote.URLPattern, "/")
 
 		return func(ctx context.Context, request *proxy.Request) (*proxy.Response, error) {
-			cl.GetObject(
+			obj, _ := cl.GetObject(
 				ctx, &s3.GetObjectInput{
 					Bucket: &opts.Bucket,
 					Key:    &k,
 				},
 			)
-			return nil, nil
+
+			data := map[string]interface{}{}
+			cont, _ := io.ReadAll(obj.Body)
+
+			if err := json.Unmarshal(cont, &data); err != nil {
+				return nil, err
+			}
+
+			return &proxy.Response{
+				Data:       data,
+				IsComplete: true,
+				Metadata: proxy.Metadata{
+					Headers:    map[string][]string{},
+					StatusCode: 200,
+				},
+			}, nil
 		}
 	}
 }
