@@ -29,7 +29,8 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 	ctx := context.Background()
 
 	type args struct {
-		config *config.Backend
+		config  *config.Backend
+		request *proxy.Request
 	}
 	tests := []struct {
 		name    string
@@ -41,8 +42,10 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 		{
 			name: "s3 client returned a valid object, should parse and return content",
 			args: args{
+				request: &proxy.Request{
+					Path: "/sample",
+				},
 				config: &config.Backend{
-					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
 						s3.Namespace: map[string]interface{}{
 							"bucket": "bucket1",
@@ -90,8 +93,10 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 		{
 			name: "path_extension configured, should parse and return content",
 			args: args{
+				request: &proxy.Request{
+					Path: "/sample",
+				},
 				config: &config.Backend{
-					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
 						s3.Namespace: map[string]interface{}{
 							"bucket":         "bucket1",
@@ -136,8 +141,10 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 		{
 			name: "s3 client returned an error, should return error",
 			args: args{
+				request: &proxy.Request{
+					Path: "/sample",
+				},
 				config: &config.Backend{
-					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
 						s3.Namespace: map[string]interface{}{
 							"bucket": "bucket1",
@@ -161,8 +168,10 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 		{
 			name: "error encountered while reading s3 response, should return error",
 			args: args{
+				request: &proxy.Request{
+					Path: "/sample",
+				},
 				config: &config.Backend{
-					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
 						s3.Namespace: map[string]interface{}{
 							"bucket": "bucket1",
@@ -188,8 +197,10 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 		{
 			name: "s3 returned invalid json, should return error",
 			args: args{
+				request: &proxy.Request{
+					Path: "/sample",
+				},
 				config: &config.Backend{
-					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
 						s3.Namespace: map[string]interface{}{
 							"bucket": "bucket1",
@@ -236,7 +247,7 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 					},
 				)
 				p := b(tt.args.config)
-				got, err := p(ctx, nil)
+				got, err := p(ctx, tt.args.request)
 				if !tt.wantErr(t, err) {
 					return
 				}
@@ -261,7 +272,6 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 			name: "with bucket",
 			args: args{
 				config: &config.Backend{
-					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
 						s3.Namespace: map[string]interface{}{
 							"bucket": "bucket1",
@@ -282,7 +292,6 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 			name: "with region",
 			args: args{
 				config: &config.Backend{
-					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
 						s3.Namespace: map[string]interface{}{
 							"bucket": "bucket1",
@@ -306,7 +315,6 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 			name: "with invalid region type",
 			args: args{
 				config: &config.Backend{
-					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
 						s3.Namespace: map[string]interface{}{
 							"bucket": "bucket1",
@@ -328,7 +336,6 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 			name: "with nil region",
 			args: args{
 				config: &config.Backend{
-					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
 						s3.Namespace: map[string]interface{}{
 							"bucket": "bucket1",
@@ -350,7 +357,6 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 			name: "with endpoint",
 			args: args{
 				config: &config.Backend{
-					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
 						s3.Namespace: map[string]interface{}{
 							"bucket":   "bucket1",
@@ -383,7 +389,6 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 			name: "with empty endpoint",
 			args: args{
 				config: &config.Backend{
-					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
 						s3.Namespace: map[string]interface{}{
 							"bucket":   "bucket1",
@@ -405,7 +410,6 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 			name: "with invalid endpoint type",
 			args: args{
 				config: &config.Backend{
-					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
 						s3.Namespace: map[string]interface{}{
 							"bucket":   "bucket1",
@@ -427,7 +431,6 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 			name: "with nil endpoint",
 			args: args{
 				config: &config.Backend{
-					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
 						s3.Namespace: map[string]interface{}{
 							"bucket":   "bucket1",
@@ -449,7 +452,6 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 			name: "with max_retries",
 			args: args{
 				config: &config.Backend{
-					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
 						s3.Namespace: map[string]interface{}{
 							"bucket":      "bucket1",
@@ -473,7 +475,6 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 			name: "with invalid max_retries",
 			args: args{
 				config: &config.Backend{
-					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
 						s3.Namespace: map[string]interface{}{
 							"bucket":      "bucket1",
@@ -495,7 +496,6 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 			name: "with nil max_retries",
 			args: args{
 				config: &config.Backend{
-					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
 						s3.Namespace: map[string]interface{}{
 							"bucket":      "bucket1",
@@ -517,7 +517,6 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 			name: "with path_extension",
 			args: args{
 				config: &config.Backend{
-					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
 						s3.Namespace: map[string]interface{}{
 							"bucket":         "bucket1",
@@ -539,7 +538,6 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 			name: "with path_extension with dot",
 			args: args{
 				config: &config.Backend{
-					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
 						s3.Namespace: map[string]interface{}{
 							"bucket":         "bucket1",
@@ -561,7 +559,6 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 			name: "with invalid path_extension",
 			args: args{
 				config: &config.Backend{
-					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
 						s3.Namespace: map[string]interface{}{
 							"bucket":         "bucket1",
@@ -583,7 +580,6 @@ func TestBackendFactoryWithClient_validConfig(t *testing.T) {
 			name: "with nil path_extension",
 			args: args{
 				config: &config.Backend{
-					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
 						s3.Namespace: map[string]interface{}{
 							"bucket":         "bucket1",
