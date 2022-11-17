@@ -64,6 +64,8 @@ func BackendFactoryWithClient(
 			k += "." + opts.PathExtension
 		}
 
+		ef := proxy.NewEntityFormatter(remote)
+
 		return func(ctx context.Context, request *proxy.Request) (*proxy.Response, error) {
 			obj, err := cl.GetObject(
 				ctx, &s3.GetObjectInput{
@@ -85,14 +87,18 @@ func BackendFactoryWithClient(
 				return nil, err
 			}
 
-			return &proxy.Response{
+			response := proxy.Response{
 				Data:       data,
 				IsComplete: true,
 				Metadata: proxy.Metadata{
 					Headers:    map[string][]string{},
 					StatusCode: 200,
 				},
-			}, nil
+			}
+
+			response = ef.Format(response)
+
+			return &response, nil
 		}
 	}
 }
