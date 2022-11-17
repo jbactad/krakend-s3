@@ -21,68 +21,68 @@ The s3 backend handler can be enabled in the backend layer of Krakend as shown b
 package main
 
 import (
-    "context"
-    "net/http"
+	"context"
+	"net/http"
 
-    s3 "github.com/jbactad/krakend-s3"
-    "github.com/luraproject/lura/v2/config"
-    "github.com/luraproject/lura/v2/logging"
-    "github.com/luraproject/lura/v2/proxy"
+	s3 "github.com/jbactad/krakend-s3"
+	"github.com/luraproject/lura/v2/config"
+	"github.com/luraproject/lura/v2/logging"
+	"github.com/luraproject/lura/v2/proxy"
 
-    "github.com/gin-gonic/gin"
-    router "github.com/luraproject/lura/v2/router/gin"
-    serverhttp "github.com/luraproject/lura/v2/transport/http/server"
-    server "github.com/luraproject/lura/v2/transport/http/server/plugin"
+	"github.com/gin-gonic/gin"
+	router "github.com/luraproject/lura/v2/router/gin"
+	serverhttp "github.com/luraproject/lura/v2/transport/http/server"
+	server "github.com/luraproject/lura/v2/transport/http/server/plugin"
 )
 
 func ExampleRegister() {
-    cfg := config.ServiceConfig{
-        Endpoints: []*config.EndpointConfig{
-            {
-                Backend: []*config.Backend{
-                    {
-                        URLPattern: "sample",
-                        ExtraConfig: map[string]interface{}{
-                            "github.com/jbactad/krakend-s3": map[string]interface{}{
-                                "bucket": "test-bucket",
-                            },
-                        },
-                    },
-                },
-            },
-        },
-    }
-    logger := logging.NoOp
+	cfg := config.ServiceConfig{
+		Endpoints: []*config.EndpointConfig{
+			{
+				Backend: []*config.Backend{
+					{
+						URLPattern: "sample",
+						ExtraConfig: map[string]interface{}{
+							"github.com/jbactad/krakend-s3": map[string]interface{}{
+								"bucket": "test-bucket",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	logger := logging.NoOp
 
-    backendFactory := proxy.HTTPProxyFactory(&http.Client{})
+	backendFactory := proxy.HTTPProxyFactory(&http.Client{})
 
-    // Wrap backendFactory with backend factory with s3 support.
-    backendFactory = s3.BackendFactory(logger, backendFactory)
+	// Wrap backendFactory with backend factory with s3 support.
+	backendFactory = s3.BackendFactory(logger, backendFactory)
 
-    pf := proxy.NewDefaultFactory(backendFactory, logger)
+	pf := proxy.NewDefaultFactory(backendFactory, logger)
 
-    handlerFactory := router.CustomErrorEndpointHandler(logger, serverhttp.DefaultToHTTPError)
+	handlerFactory := router.CustomErrorEndpointHandler(logger, serverhttp.DefaultToHTTPError)
 
-    engine := gin.New()
+	engine := gin.New()
 
-    // setup the krakend router
-    routerFactory := router.NewFactory(
-        router.Config{
-            Engine:         engine,
-            ProxyFactory:   pf,
-            Logger:         logger,
-            RunServer:      router.RunServerFunc(server.New(logger, serverhttp.RunServer)),
-            HandlerFactory: handlerFactory,
-        },
-    )
+	// setup the krakend router
+	routerFactory := router.NewFactory(
+		router.Config{
+			Engine:         engine,
+			ProxyFactory:   pf,
+			Logger:         logger,
+			RunServer:      router.RunServerFunc(server.New(logger, serverhttp.RunServer)),
+			HandlerFactory: handlerFactory,
+		},
+	)
 
-    // start the engines
-    logger.Info("Starting the KrakenD instance")
-    routerFactory.NewWithContext(context.Background()).Run(cfg)
+	// start the engines
+	logger.Info("Starting the KrakenD instance")
+	routerFactory.NewWithContext(context.Background()).Run(cfg)
 }
 ```
 
-Then in your gateway's config file make sure to add `github_com/jbactad/krakend_newrelic_v2` in the
+Then in your gateway's config file make sure to add `github.com/jbactad/krakend-s3` in the
 service `extra_config` section.
 
 ```json
@@ -118,7 +118,8 @@ Because Krakend expects your backend to be rest apis,
 refer from adding the file extension directly from the `url_pattern`.
 Use the provided `path_extension` instead.
 
-For example, the config below will use `/sample-file-path.json` as the object key.
+For example, the config below will use `sample-file-path.json` as the object key
+and will return the object located at `s3://test-bucket-name/sample-file-path.json.
 
 ```json
 {
