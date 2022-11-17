@@ -29,7 +29,8 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 	ctx := context.Background()
 
 	type args struct {
-		config *config.Backend
+		config  *config.Backend
+		request *proxy.Request
 	}
 	tests := []struct {
 		name    string
@@ -41,6 +42,9 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 		{
 			name: "s3 client returned a valid object, should parse and return content",
 			args: args{
+				request: &proxy.Request{
+					Path: "/sample",
+				},
 				config: &config.Backend{
 					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
@@ -88,8 +92,63 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 			},
 		},
 		{
+			name: "pattern url, should parse and return content",
+			args: args{
+				request: &proxy.Request{
+					Path: "/sample",
+				},
+				config: &config.Backend{
+					URLPattern: "/{file_name}",
+					ExtraConfig: map[string]interface{}{
+						s3.Namespace: map[string]interface{}{
+							"bucket": "bucket1",
+						},
+					},
+				},
+			},
+			wantErr: assert.NoError,
+			want: &proxy.Response{
+				Data: map[string]interface{}{
+					"property1": "value1",
+				},
+				IsComplete: true,
+				Metadata: proxy.Metadata{
+					Headers:    map[string][]string{},
+					StatusCode: 200,
+				},
+			},
+			setup: func(logger *mocks.MockLogger, client *mocks.MockObjectGetter) {
+				b := "bucket1"
+				k := "sample"
+				client.EXPECT().
+					GetObject(
+						ctx, gomock.Eq(
+							&awsS3.GetObjectInput{
+								Bucket: &b,
+								Key:    &k,
+							},
+						),
+					).
+					Times(1).
+					Return(
+						&awsS3.GetObjectOutput{
+							Body: io.NopCloser(
+								strings.NewReader(
+									`{
+	"property1": "value1"
+}`,
+								),
+							),
+						}, nil,
+					)
+			},
+		},
+		{
 			name: "path_extension configured, should parse and return content",
 			args: args{
+				request: &proxy.Request{
+					Path: "/sample",
+				},
 				config: &config.Backend{
 					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
@@ -136,6 +195,9 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 		{
 			name: "s3 client returned an error, should return error",
 			args: args{
+				request: &proxy.Request{
+					Path: "/sample",
+				},
 				config: &config.Backend{
 					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
@@ -161,6 +223,9 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 		{
 			name: "error encountered while reading s3 response, should return error",
 			args: args{
+				request: &proxy.Request{
+					Path: "/sample",
+				},
 				config: &config.Backend{
 					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
@@ -188,6 +253,9 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 		{
 			name: "s3 returned invalid json, should return error",
 			args: args{
+				request: &proxy.Request{
+					Path: "/sample",
+				},
 				config: &config.Backend{
 					URLPattern: "/sample",
 					ExtraConfig: map[string]interface{}{
@@ -236,7 +304,7 @@ func TestBackendFactoryWithClient_backendProxyInvoked(t *testing.T) {
 					},
 				)
 				p := b(tt.args.config)
-				got, err := p(ctx, nil)
+				got, err := p(ctx, tt.args.request)
 				if !tt.wantErr(t, err) {
 					return
 				}
