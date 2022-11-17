@@ -64,6 +64,9 @@ jobs:
     - name: Setup
       run: make setup
 
+    - name: Get dependencies
+      run: make deps
+
     - name: Generate mocks
       run: |
         go generate
