@@ -15,18 +15,139 @@ go get -u github.com/jbactad/krakend-newrelic-v2
 
 ## Quick Start
 
-[//]: # (TODO: finish quick start guide)
+The s3 backend handler can be enabled in the backend layer of Krakend as shown below.
+
+```go
+package main
+
+import (
+	"context"
+	"net/http"
+
+	s3 "github.com/jbactad/krakend-s3"
+	"github.com/luraproject/lura/v2/config"
+	"github.com/luraproject/lura/v2/logging"
+	"github.com/luraproject/lura/v2/proxy"
+
+	"github.com/gin-gonic/gin"
+	router "github.com/luraproject/lura/v2/router/gin"
+	serverhttp "github.com/luraproject/lura/v2/transport/http/server"
+	server "github.com/luraproject/lura/v2/transport/http/server/plugin"
+)
+
+func ExampleRegister() {
+	cfg := config.ServiceConfig{
+		Endpoints: []*config.EndpointConfig{
+			{
+				Backend: []*config.Backend{
+					{
+						URLPattern: "sample",
+						ExtraConfig: map[string]interface{}{
+							"github.com/jbactad/krakend-s3": map[string]interface{}{
+								"bucket": "test-bucket",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	logger := logging.NoOp
+
+	backendFactory := proxy.HTTPProxyFactory(&http.Client{})
+
+	// Wrap backendFactory with backend factory with s3 support.
+	backendFactory = s3.BackendFactory(logger, backendFactory)
+
+	pf := proxy.NewDefaultFactory(backendFactory, logger)
+
+	handlerFactory := router.CustomErrorEndpointHandler(logger, serverhttp.DefaultToHTTPError)
+
+	engine := gin.New()
+
+	// setup the krakend router
+	routerFactory := router.NewFactory(
+		router.Config{
+			Engine:         engine,
+			ProxyFactory:   pf,
+			Logger:         logger,
+			RunServer:      router.RunServerFunc(server.New(logger, serverhttp.RunServer)),
+			HandlerFactory: handlerFactory,
+		},
+	)
+
+	// start the engines
+	logger.Info("Starting the KrakenD instance")
+	routerFactory.NewWithContext(context.Background()).Run(cfg)
+}
+```
+
+Then in your gateway's config file make sure to add `github_com/jbactad/krakend_newrelic_v2` in the
+service `extra_config` section.
+
+```json
+{
+  "$schema": "https://www.krakend.io/schema/v3.json",
+  "version": 3.0,
+  "endpoints": [
+    {
+      "endpoint": "/sample",
+      "backend": [
+        {
+          "url_pattern": "/sample-file-path",
+          "extra_config": {
+            "github_com/jbactad/krakend-s3": {
+              "bucket": "test-bucket-name",
+              "region": "eu-west-1",
+              "max_retries": 5,
+              "path_extension": "json"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+```
 
 ## Configuring
 
+The `url_pattern` of your `backend` configuration will be used as the key of the object to fetch from s3 bucket.
+
+Because Krakend expects your backend to be rest apis,
+refer from adding the file extension directly from the `url_pattern`.
+Use the provided `path_extension` instead.
+
+For example, the config below will use `/sample-file-path.json` as the object key.
+
+```json
+{
+  "endpoint": "/sample",
+  "backend": [
+    {
+      "url_pattern": "/sample-file-path",
+      "extra_config": {
+        "github_com/jbactad/krakend-s3": {
+          "bucket": "test-bucket-name",
+          "region": "eu-west-1",
+          "max_retries": 5,
+          "path_extension": "json"
+        }
+      }
+    }
+  ]
+}
+```
+
 From krakend configuration file, these are the following options you can configure.
 
-| Name           | Type | Description                                                                      |
-|----------------|------|----------------------------------------------------------------------------------|
-| bucket         | int  | The s3 bucket to fetch the file from.                                            |
-| region         | int  | The s3 region to use when fetching the file from the bucket.                     |
-| max_retries    | int  | Maximum number of retries to make if a failure occurred while fetching the file. |
-| path_extension | int  | Suffix to use when generating the file path. i.e. (json)                         |
+| Name           | Type | Required | Description                                                                      |
+|----------------|------|:---------|----------------------------------------------------------------------------------|
+| bucket         | int  | true     | The s3 bucket to fetch the object from.                                          |
+| region         | int  | false    | The s3 region to use when fetching the object from the bucket.                   |
+| endpoint       | int  | false    | The aws endpoint to use when fetching the object from s3.                        |
+| max_retries    | int  | false    | Maximum number of retries to make if a failure occurred while fetching the file. |
+| path_extension | int  | false    | Suffix to use when generating the key of the object. i.e. (json)                 |
 
 ## Development
 
