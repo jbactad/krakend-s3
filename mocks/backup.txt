@@ -1,0 +1,50 @@
+
+func TestBackendFactory_backendProxyInvoked(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	l := mocks.NewMockLogger(ctrl)
+
+	oResp := &proxy.Response{
+		Data:       map[string]interface{}{},
+		IsComplete: true,
+		Metadata:   proxy.Metadata{},
+		Io:         nil,
+	}
+	bf := proxy.BackendFactory(
+		func(remote *config.Backend) proxy.Proxy {
+			return func(ctx context.Context, request *proxy.Request) (*proxy.Response, error) {
+				return oResp, nil
+			}
+		},
+	)
+
+	type args struct {
+		config *config.Backend
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr assert.ErrorAssertionFunc
+		want    *proxy.Response
+		setup   func(logger *mocks.MockLogger)
+	}{
+	}
+	for _, tt := range tests {
+		t.Run(
+			tt.name, func(t *testing.T) {
+				if tt.setup != nil {
+					tt.setup(l)
+				}
+
+				b := s3.BackendFactory(l, bf)
+				p := b(tt.args.config)
+				got, err := p(nil, nil)
+				if !tt.wantErr(t, err) {
+					return
+				}
+
+				assert.Equal(t, tt.want, got)
+			},
+		)
+	}
+}
+
