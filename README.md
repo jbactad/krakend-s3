@@ -1,8 +1,11 @@
 # krakend-s3
+
 A Krakend plugin to serve S3 files directly from your gateway.
 
-[//]: # (TODO: add bagdes for ci, coverage, godoc, go report)
-
+[![Go Reference](https://pkg.go.dev/badge/github.com/jbactad/krakend-s3.svg)](https://pkg.go.dev/github.com/jbactad/krakend-s3)
+![Go](https://github.com/jbactad/krakend-s3/actions/workflows/go.yml/badge.svg)
+[![codecov](https://codecov.io/gh/jbactad/krakend-s3/branch/main/graph/badge.svg?token=OEX805T5L8)](https://codecov.io/gh/jbactad/krakend-s3)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jbactad/krakend-s3)](https://goreportcard.com/report/github.com/jbactad/krakend-s3)
 
 ## Installation
 
@@ -16,16 +19,14 @@ go get -u github.com/jbactad/krakend-newrelic-v2
 
 ## Configuring
 
-NewRelic related configurations are all read from environment variables.
-Refer to [newrelic go agent](https://pkg.go.dev/github.com/newrelic/go-agent/v3/newrelic@v3.18.1#ConfigFromEnvironment)
-package to know more of which NewRelic options can be configure.
-
 From krakend configuration file, these are the following options you can configure.
 
-| Name | Type | Description                                           |
-|------|------|-------------------------------------------------------|
-| rate | int  | The rate the middlewares instrument your application. |
-
+| Name           | Type | Description                                                                      |
+|----------------|------|----------------------------------------------------------------------------------|
+| bucket         | int  | The s3 bucket to fetch the file from.                                            |
+| region         | int  | The s3 region to use when fetching the file from the bucket.                     |
+| max_retries    | int  | Maximum number of retries to make if a failure occurred while fetching the file. |
+| path_extension | int  | Suffix to use when generating the file path. i.e. (json)                         |
 
 ## Development
 
