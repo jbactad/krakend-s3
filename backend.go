@@ -27,8 +27,9 @@ type ObjectGetter interface {
 }
 
 type Options struct {
-	AWSConfig aws.Config
-	Bucket    string
+	AWSConfig     aws.Config
+	Bucket        string
+	PathExtension string
 }
 
 func BackendFactory(logger logging.Logger, bf proxy.BackendFactory) proxy.BackendFactory {
@@ -58,6 +59,10 @@ func BackendFactoryWithClient(
 		cl := clientFactory(opts)
 
 		k := strings.TrimPrefix(remote.URLPattern, "/")
+
+		if len(opts.PathExtension) > 0 {
+			k += "." + opts.PathExtension
+		}
 
 		return func(ctx context.Context, request *proxy.Request) (*proxy.Response, error) {
 			obj, err := cl.GetObject(
@@ -140,6 +145,10 @@ func getOptions(remote *config.Backend) (*Options, error) {
 
 	if maxRetries, ok := cfg["max_retries"].(int); ok {
 		opts.AWSConfig.RetryMaxAttempts = maxRetries
+	}
+
+	if pathExtension, ok := cfg["path_extension"].(string); ok {
+		opts.PathExtension = strings.TrimPrefix(pathExtension, ".")
 	}
 
 	return opts, nil
