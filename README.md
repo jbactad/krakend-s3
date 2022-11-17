@@ -10,7 +10,7 @@ A Krakend plugin to serve S3 files directly from your gateway.
 ## Installation
 
 ```bash
-go get -u github.com/jbactad/krakend-newrelic-v2
+go get -u github.com/jbactad/krakend-s3
 ```
 
 ## Quick Start
