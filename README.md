@@ -83,7 +83,7 @@ func ExampleRegister() {
 ```
 
 Then in your gateway's config file make sure to add `github.com/jbactad/krakend-s3` in the
-service `extra_config` section.
+one of your endpoint backend's `extra_config` section.
 
 ```json
 {
