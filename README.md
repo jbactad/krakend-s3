@@ -119,7 +119,7 @@ refer from adding the file extension directly from the `url_pattern`.
 Use the provided `path_extension` instead.
 
 For example, the config below will use `sample-file-path.json` as the object key
-and will return the object located at `s3://test-bucket-name/sample-file-path.json.
+and will return the object located at `s3://test-bucket-name/sample-file-path.json.`
 
 ```json
 {
